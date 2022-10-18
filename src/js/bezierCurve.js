@@ -1,127 +1,227 @@
 const canvasCurve = new CreateCanvas();
 
-const cnvCurve  = canvasCurve.cnv;
-const ctxCurve  = canvasCurve.ctx;
-const sizeCurve = canvasCurve.size;
-const rect      = cnvCurve.getBoundingClientRect();
-var index;
+const cnv  = canvasCurve.cnv;
+const ctx  = canvasCurve.ctx;
+const size = canvasCurve.size;
+const rect = cnv.getBoundingClientRect();
 
-var cp = [
-  {
-    px: 10,
-    py: 50,
-    r:  5
-  },
-  {
-    px: 40,
-    py: 40,
-    r:  5
-  },
-  {
-    px: 70,
-    py: 60,
-    r:  5
-  },
-  {
-    px: 90,
-    py: 50,
-    r:  5
-  }
-];
+/**
+ * --------------------------------------------------------------
+ * Глобальные переменые
+ */
 
-drawCP();
+// Координаты мыши
+var cursor;
 
-cnvCurve.addEventListener('mousedown', mouseDownHandler);
-cnvCurve.addEventListener('mouseup', mouseUpHandler);
+// Курсор над точкой или нет
+var over;
 
-function mouseDownHandler(e) {
-  let mx = e.clientX - rect.left;
-  let my = e.clientY - rect.top;
-  for (let i = 0; i < cp.length; i++) {
-    // console.log(cp[i].px)
-    let px =  percentageConversion(sizeCurve.w, cp[i].px);
-    let py =  percentageConversion(sizeCurve.h, cp[i].py);
-    let r  = cp[i].r;
+// Координаты начальных и конечных точек
+var points      = [];
 
-    let ifx = mx > px - r - 10 && mx < px + r + 10;
-    let ify = my > py - r - 10 && my < py + r + 10;
-    
-    if (ifx && ify) {
-      index = [i]
-      cnvCurve.addEventListener('mousemove', mouseMoveHandler);
-    }
+// Координаты контрольных точек
+var checkpoints = [];
 
-  }
+// Индекс точки по которой кликнули
+var pointIndex;
+var checkPointIndex;
 
-}
+/**
+ * --------------------------------------------------------------
+ * Добовления событий
+ */
 
-function mouseMoveHandler(e) {
-  let x = e.clientX - rect.left;
-  let y = e.clientY - rect.top;
+// Событие получения Координаты мыши
+cnv.addEventListener('mousedown', cursorPosition);
 
-  cp[index].px = (x / sizeCurve.w) * 100;
-  cp[index].py = (y / sizeCurve.h) * 100;
-}
+// Событие проверки находится ли курсор над точкой
+cnv.addEventListener('mousedown', overPoint);
 
-cnvCurve.addEventListener('mousemove', () => {
-  drawCP();
+// Событие Создания точек
+cnv.addEventListener('mousedown', createPoints);
+
+// Событие Рисования Кривой
+// cnv.addEventListener('mousedown', drawCurve);
+
+// Событие отпускание кнопки мыши
+cnv.addEventListener('mouseup', mouseUpHandler);
+
+
+// Событе нажатия клавиш на клавиатуре
+document.addEventListener('keydown', keyDownHandler);
+// document.addEventListener('keyup', keyUpHandler);
+
+cnv.addEventListener('mousemove', () => {
+  drawCurve();
 })
 
-function mouseUpHandler() {
-  cnvCurve.removeEventListener('mousemove', mouseMoveHandler);
-}
+/**
+ * --------------------------------------------------------------
+ * Удаление событий
+ */
 
+  function mouseUpHandler(e) {
+    cnv.removeEventListener('mousemove', dragPoints);
+    cnv.removeEventListener('mousemove', dragCheckPoints);
 
-function drawCP() {
-  ctxCurve.clearRect(0, 0, sizeCurve.w, sizeCurve.h);
-  for (let i = 0; i < cp.length; i++) {
-    let px = percentageConversion(sizeCurve.w, cp[i].px);
-    let py = percentageConversion(sizeCurve.h, cp[i].py);
-
-    ctxCurve.beginPath();
-    ctxCurve.arc(px, py, cp[i].r, 0, Math.PI * 2);
-    ctxCurve.fillStyle = '#7D83FF'
-    ctxCurve.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctxCurve.shadowBlur = '10'
-    ctxCurve.fill();
-    ctxCurve.closePath();
+  }
+  
+  function keyDownHandler(e) {
+    if (e.ctrlKey) {
+      cnv.removeEventListener('mousemove', dragPoints);
+    }
   }
 
-  drawBezierCurve();
-}
-drawBezierCurve();
 
-function drawBezierCurve() {
-  for (let i = 0; i < cp.length; i++) {
-    let pxStart = percentageConversion(sizeCurve.w, cp[0].px);
-    let pyStart = percentageConversion(sizeCurve.h, cp[0].py);
-    let px1     = percentageConversion(sizeCurve.w, cp[1].px);
-    let py1     = percentageConversion(sizeCurve.h, cp[1].py);
-    let px2     = percentageConversion(sizeCurve.w, cp[2].px);
-    let py2     = percentageConversion(sizeCurve.h, cp[2].py);
-    let pxEnd   = percentageConversion(sizeCurve.w, cp[3].px);
-    let pyEnd   = percentageConversion(sizeCurve.h, cp[3].py);
+
+/**
+ * --------------------------------------------------------------
+ * Создание точек
+ */
+
+function createPoints(e) {
+  points.push({ x : cursor.x, y : cursor.y, r : 5 });
+  checkpoints.push({ x : cursor.x, y : cursor.y, r : 5 });
+
+
+
+  console.log(checkpoints)
+  drawCurve();
+}
+
+
+/**
+ * --------------------------------------------------------------
+ * Проверка находиться ли курсор над точкой
+ */
+
+function overPoint() {
+
+  // Перебераем масивв точек циклом
+  for (let i = 0; i < points.length; i++) {
+
+    // if ( i > 0 && i < points.length ) {
+    //   checkpoints.splice(i, 0, {x : cursor.x, y : cursor.y, r : 5});
+    // }
+
+
+    if (cursor.x > points[i].x - points[i].r - 15 && cursor.x < points[i].x + points[i].r + 15 && cursor.y > points[i].y - points[i].r - 15 && cursor.y < points[i].y + points[i].r + 15) {
+      // Удалаем событе создание точек
+      cnv.removeEventListener('mousedown', createPoints);
+      cnv.removeEventListener('mousedown', drawCurve);
+
+      // Добаляем событе создание точек
+      cnv.addEventListener('mousedown', createPoints);
+      cnv.addEventListener('mousedown', drawCurve);
+
+      // Получение индекса текущей точки
+      pointIndex = i;
+
+      // console.log('Points: ', points[i], 'Checkpoints: ', checkpoints[i])
+
+      // Событие перетаскивания точек
+      cnv.addEventListener('mousemove', dragPoints);
+
+
+      
+    } else {
+      // Добаляем событе создание точек
+      cnv.addEventListener('mousedown', createPoints);
+    }
+
+    if (cursor.x > checkpoints[i].x - checkpoints[i].r - 15 && cursor.x < checkpoints[i].x + checkpoints[i].r + 15 && cursor.y > checkpoints[i].y - checkpoints[i].r - 15 && cursor.y < checkpoints[i].y + checkpoints[i].r + 15) {
+      // Удалаем событе создание точек
+      cnv.removeEventListener('mousedown', createPoints);
+      cnv.removeEventListener('mousedown', drawCurve);
+
+      // Добаляем событе создание точек
+      cnv.addEventListener('mousedown', createPoints);
+      cnv.addEventListener('mousedown', drawCurve);
+      
+      checkPointIndex = i;
+
+
+      // console.log('Points: ', points[i], 'Checkpoints: ', checkpoints[i])
+
+
+      cnv.addEventListener('mousemove', dragCheckPoints);
+    }  else {
+      // Добаляем событе создание точек
+      cnv.addEventListener('mousedown', createPoints);
+    }
+
+  } 
+
+}
+
+/**
+ * --------------------------------------------------------------
+ * Перетаскивание точек
+ */
+
+ function dragPoints(e) {
     
-    ctxCurve.beginPath();
-    ctxCurve.moveTo(pxStart, pyStart);
-    ctxCurve.bezierCurveTo(px1, py1, px2, py2, pxEnd, pyEnd);
-    ctxCurve.lineWidth  = 0.2;
-    ctxCurve.shadowBlur = 0
-    ctxCurve.strokeStyle  = '#7D83FF';
-    ctxCurve.stroke();
-    ctxCurve.closePath();
+    let x = e.clientX - rect.left
+    let y = e.clientY - rect.top
+
+    points[pointIndex].x = x;
+    points[pointIndex].y = y;
+}
+
+/**
+ * --------------------------------------------------------------
+ * Перетаскивание контрольных точек
+ */
+
+ function dragCheckPoints(e) {
     
-    
+    let x = e.clientX - rect.left
+    let y = e.clientY - rect.top
+
+
+    checkpoints[checkPointIndex].x = x;
+    checkpoints[checkPointIndex].y = y;
+}
+
+
+/**
+ * --------------------------------------------------------------
+ * Рисование кривой
+ */
+
+ function drawCurve() {
+  ctx.clearRect(0, 0, size.w, size.h);
+
+  for (let i = 0; i < points.length; i++) {
+    if ( i > 0 ) {
+      ctx.beginPath();
+      ctx.moveTo(points[i - 1].x, points[i - 1].y);
+      ctx.bezierCurveTo(checkpoints[i - 1].x, checkpoints[i - 1].y, checkpoints[i].x, checkpoints[i].y, points[i].x, points[i].y);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(points[i].x, points[i].y, points[i].r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(checkpoints[i].x, checkpoints[i].y, checkpoints[i].r, 0, Math.PI * 2);
+    ctx.moveTo(points[i].x, points[i].y);
+    ctx.lineTo(checkpoints[i].x,  checkpoints[i].y)
+    ctx.stroke();
   }
 
 }
 
 
 
-function percentageConversion(size, val) {
+/**
+ * --------------------------------------------------------------
+ * Получение координат мыши
+ */
 
-  let res = size * (val / 100);
+function cursorPosition(e) {
+  let x      = e.clientX - rect.left;
+  let y      = e.clientY - rect.top;
 
-  return res;
-
+  cursor = { x: x, y: y };
 }
