@@ -44,8 +44,6 @@ export const compound = ((indexes) => {
 
   let pointsXY = points[indexes.figure][indexes.curve][indexes.point];
 
-  console.log(indexes);
-
   point.push(
     { x: prevCurve[2].x, y: prevCurve[2].y },
     { x: prevCurve[2].x, y: prevCurve[2].y },
